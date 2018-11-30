@@ -121,31 +121,33 @@ class Node:
         
         self.sympy_rep = get_terms_sympy(self.terms_list)
         
-    def expand_terms(self, delta_t, delta_y):
+    def expand_terms(self, delta_t, delta_y, depth):
         
         dt_terms, dy_terms = d_terms(self.terms_list)
         self.dt_terms_node, self.dy_terms_node = Node(dt_terms,delta_t, delta_y),  Node(dy_terms,delta_t, delta_y)
         
         # apply multipliers
-        self.dt_terms_node.apply_multiplier(delta_t*self.multiplier)
-        self.dy_terms_node.apply_multiplier(delta_y*self.multiplier)
+        self.dt_terms_node.apply_multiplier(delta_t*self.multiplier, depth) #depth+1)
+        self.dy_terms_node.apply_multiplier(delta_y*self.multiplier, depth) #depth+1)
         
-    def apply_multiplier(self, delta):
+        
+    def apply_multiplier(self, delta, depth):
         self.multiplier = delta
         self.sympy_rep = self.sympy_rep*self.multiplier
+        
+        # apply factorial multiplier
+        self.sympy_rep = self.sympy_rep/factorial(depth)
 
         
-def add_order(node, delta_t, delta_y):
+def add_order(node, delta_t, delta_y, depth=0):
     
     # if leaf node found, expand leaf node
     if node.dt_terms_node is None or node.dy_terms_node is None:
-        node.expand_terms(delta_t, delta_y)
-        
-        print(node.sympy_rep)
+        node.expand_terms(delta_t, delta_y, depth+1)
         
     else:
-        add_order(node.dt_terms_node, delta_t, delta_y)
-        add_order(node.dy_terms_node, delta_t, delta_y)
+        add_order(node.dt_terms_node, delta_t, delta_y, depth=depth+1)
+        add_order(node.dy_terms_node, delta_t, delta_y, depth=depth+1)
         
 
 def get_combined_terms_list(node):
@@ -178,21 +180,29 @@ class TaylorTree:
         
         self.delta_t, self.delta_y = delta_t, delta_y
         self.root = Node([[[]]], self.delta_t, self.delta_y)
+        self.order = order
         
         # depth of tree is == to the order passed
-        for ol in range(order):
+        for ol in range(self.order):
             add_order(self.root, self.delta_t, self.delta_y)
             
             
     
     def get_sympy(self):
         
-        return expand(get_taylor_tree_sympy(self.root))
+        return expand(get_taylor_tree_sympy(self.root)) #+ Order(self.order+1)
         
 
 delta_t, delta_y = symbols('Delta_t, Delta_y')
 
-tt = TaylorTree(2, delta_t, delta_y)
+h, k1 = symbols('h,k_1')
 
-tt.get_sympy()
+#delta_t = h/2
+#delta_y = k1*h/2 #TaylorTree(0, delta_t, delta_y).get_sympy()
 
+
+f = Function("f")
+t,y = symbols("t,y")
+
+tt = TaylorTree(1, h/2, f(t,y)*h/2)
+expand(tt.get_sympy()*h*3/4)
