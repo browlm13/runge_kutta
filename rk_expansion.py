@@ -1,17 +1,11 @@
-
+from sympy import *
 
 def d_single_f_term(ft, y_dependent=True):
 
     """ return dts and dys lists for single fterm """
 
     dt = [  ft[:] + ['t'] ]
-
-    dy = [ ft[:] + ['y'], [] ] # ex: [[t,y,new_y], []] where this represents: ftyy*f
-    #dy = [ ft[:] + ['y'] ]
-    #if y_dependent:
-    #    #dy = [ ft[:] + ['y'], [] ] # ex: [[t,y,new_y], []] where this represents: ftyy*f
-    #    dy += []
-    #    print(dy)
+    dy = [ ft[:] + ['y'], [] ] 
     return dt, dy
 
 
@@ -23,7 +17,6 @@ def d_product(term, y_dependent=True):
 	# product rule
 	n = len(term) # number of f multipliers in term
 	dt_terms, dy_terms = [], [] #[term[:]]*n, [term[:]]*n
-	#print(term)
 	for f in range(n):
 
 		dt_pop, dy_pop = term[:], term[:]
@@ -193,24 +186,34 @@ class TaylorTree:
         h = symbols("h")
         return expand(get_taylor_tree_sympy(self.root)) + Order(h**self.order)
         
-
-delta_t, delta_y = symbols('Delta_t, Delta_y')
+# sympy
 f = Function("f")
 t,y,h = symbols("t,y,h")
+yn = symbols("y_n")
 
-"""
-h, k1 = symbols('h,k_1')
+# butcher
+b1, b2, b3 = 2/9, 3/9, 4/9
+c2, a21 = 1/2, 1/2
+c3, a31, a32 = 3/4, 0, 3/4
 
-#delta_t = h/2
-#delta_y = k1*h/2 #TaylorTree(0, delta_t, delta_y).get_sympy()
+# k1, k2, k3
+k1 = h*f(t,y)
 
+tk2 = TaylorTree(3, h*c2, h*a21)
+k2 = h*tk2.get_sympy() 
 
-f = Function("f")
-t,y = symbols("t,y")
+tk3 = TaylorTree(4, h*c3, h*a32)
+k3 = expand(h*tk3.get_sympy())
 
-tt = TaylorTree(1, h/2, f(t,y)*h/2)
-expand(tt.get_sympy()*h*3/4)
-"""
-tt = TaylorTree(3, delta_t, delta_y)
-expanded = expand(tt.get_sympy())
-expand(expanded*h)
+# expand runge kutta method
+rk_expansion = expand(yn + b1*k1 + b2*k2 + b3*k3)
+
+# expand taylor series of correct solution
+tt = TaylorTree(3, h, h, depth_coeff_offset=1)
+y_talyor_expansion = yn + expand(h*tt.get_sympy())
+
+rk_expansion
+
+y_talyor_expansion
+
+rk_expansion  - y_talyor_expansion
