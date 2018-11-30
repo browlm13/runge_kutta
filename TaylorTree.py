@@ -110,25 +110,39 @@ def get_terms_sympy(terms_list):
 
 class Node: 
 
-    def __init__(self, terms_list): 
+    def __init__(self, terms_list, delta_t, delta_y, multiplier=1): 
         self.terms_list = terms_list
+        self.delta_t, self.delta_y = delta_t, delta_y
+        self.multiplier = multiplier
 
         # node children
         self.dt_terms_node = None
         self.dy_terms_node = None
         
+        self.sympy_rep = get_terms_sympy(self.terms_list)
+        
     def expand_terms(self, delta_t, delta_y):
         
         dt_terms, dy_terms = d_terms(self.terms_list)
-        self.dt_terms_node, self.dy_terms_node = Node(dt_terms),  Node(dy_terms)
+        self.dt_terms_node, self.dy_terms_node = Node(dt_terms,delta_t, delta_y),  Node(dy_terms,delta_t, delta_y)
         
+        # apply multipliers
+        self.dt_terms_node.apply_multiplier(delta_t*self.multiplier)
+        self.dy_terms_node.apply_multiplier(delta_y*self.multiplier)
+        
+    def apply_multiplier(self, delta):
+        self.multiplier = delta
+        self.sympy_rep = self.sympy_rep*self.multiplier
 
+        
 def add_order(node, delta_t, delta_y):
     
     # if leaf node found, expand leaf node
     if node.dt_terms_node is None or node.dy_terms_node is None:
         node.expand_terms(delta_t, delta_y)
-    
+        
+        print(node.sympy_rep)
+        
     else:
         add_order(node.dt_terms_node, delta_t, delta_y)
         add_order(node.dy_terms_node, delta_t, delta_y)
@@ -142,20 +156,28 @@ def get_combined_terms_list(node):
 
         else: 
             return node.terms_list + get_combined_terms_list(node.dt_terms_node) + get_combined_terms_list(node.dy_terms_node)
-        
+
+def get_combined_sympy(node):
+    if node is not None: 
+
+        if ( node.dt_terms_node is None and node.dy_terms_node is None ): 
+            return node.sympy_rep
+        else: 
+            return node.sympy_rep + get_combined_sympy(node.dt_terms_node) + get_combined_sympy(node.dy_terms_node)
+    
 def get_taylor_tree_sympy(root):
     
-    terms_list = get_combined_terms_list(root)
-
+    #terms_list = get_combined_terms_list(root)
+    #get_terms_sympy(terms_list)
     
-    return get_terms_sympy(terms_list)
+    return get_combined_sympy(root) 
 
 class TaylorTree:
     
     def __init__(self, order, delta_t=0, delta_y=0):
         
-        self.root = Node([[[]]])
         self.delta_t, self.delta_y = delta_t, delta_y
+        self.root = Node([[[]]], self.delta_t, self.delta_y)
         
         # depth of tree is == to the order passed
         for ol in range(order):
@@ -165,9 +187,12 @@ class TaylorTree:
     
     def get_sympy(self):
         
-        return get_taylor_tree_sympy(self.root)
+        return expand(get_taylor_tree_sympy(self.root))
         
 
-tt = TaylorTree(2)
+delta_t, delta_y = symbols('Delta_t, Delta_y')
+
+tt = TaylorTree(2, delta_t, delta_y)
 
 tt.get_sympy()
+
